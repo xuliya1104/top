@@ -34,7 +34,7 @@ default=`grep "default revision" .repo/manifest.xml`
 default=${default#*revision=\"}
 default=${default%%\"*}
 
-获取默认分支上库的revision值
+#获取默认分支上库的revision值
 revisionList=`ssh -p 29418 $IP gerrit ls-projects -b ${default}|cut -d ' ' -f 1,2 --output-delimiter='('|sed 's#$#)#g'`
 
 #遍历manifest,在各个库上建立新分支
@@ -46,12 +46,8 @@ do
         if [ "`echo $line|grep revision`" = "" ];then
             #获取该库原分支的revision值
             revision=`echo "$revisionList"|grep "("${name}")"`
-            #将库的HEAD指向原分支
-            #ssh -p 29418 -n $IP gerrit set-head $name --new-head $default
             #建立新分支
             ssh -p 29418 -n $IP gerrit create-branch $name $new_branch ${revision%%(*}
-            #将库的HEAD重新指向master
-            #ssh -p 29418 -n $IP gerrit set-head $name --new-head master
         fi
     fi
 done < .repo/manifest.xml

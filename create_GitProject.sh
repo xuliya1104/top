@@ -36,6 +36,10 @@ default=`grep "default revision" .repo/manifest.xml`
 default=${default#*revision=\"}
 default=${default%%\"*}
 
+#获取指定分支上各库的revision值
+if [ "$specified" != "" ];then
+    revisionList=`ssh -p 29418 $IP gerrit ls-projects -b ${specified}|cut -d ' ' -f 1,2 --output-delimiter='('|sed 's#$#)#g'`
+fi
 
 #遍历list、建库和分支
 fixed_name=""
@@ -52,16 +56,15 @@ do
         name="qcom_amss/${name}"
     fi
     fixed_name=${fixed_name}${name}" "
-    #建库和master分支(库可能存在)
+    #建库和master分支
     ssh -p 29418 -n $IP gerrit create-project --empty-commit $name
+    #设置权限（如果是30.13上的库）
+    ssh -p 29418 -n $IP gerrit set-project-parent $name -p Wt-Product-rights
     #建项目分支
     if [ "$specified" != "" ];then
-        ssh -p 29418 -n $IP gerrit set-head $name --new-head $specified
-        ssh -p 29418 -n $IP gerrit create-branch $name $default HEAD
-        ssh -p 29418 -n $IP gerrit set-head $name --new-head master
+        revision=`echo "$revisionList"|grep "("${name}")"`
+        ssh -p 29418 -n $IP gerrit create-branch $name $default ${revision%%(*}
     else
-        #确保HEAD指向master
-        ssh -p 29418 -n $IP gerrit set-head $name --new-head master
         ssh -p 29418 -n $IP gerrit create-branch $name $default HEAD
     fi
     #若是在30.13上建库还需创建mirror分支(mirror分支可能存在)
@@ -107,5 +110,5 @@ git status
 git add $m
 git commit -m "在${m}上增加库：${fixed_name}"
 git remote add ssh-m ssh://${IP}:29418/manifest.git
-git push ssh-m HEAD:refs/for/$b                                                                                   
+git push ssh-m HEAD:refs/for/$b
 
